@@ -25,11 +25,14 @@ import com.sdl.webapp.common.controller.exception.InternalServerErrorException;
 import com.sdl.webapp.common.controller.exception.NotFoundException;
 import com.sdl.webapp.common.exceptions.DxaException;
 import com.sdl.webapp.common.markup.Markup;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.server.ServletServerHttpResponse;
 import org.springframework.stereotype.Controller;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -247,16 +250,30 @@ public class PageController extends BaseController {
      * Handles non-specific exceptions.
      *
      * @param request   The request.
+     * @param response   The response
      * @param exception The exception.
      * @return The name of the view that renders the "internal server error" page.
      */
     @ExceptionHandler(Exception.class)
-    public String handleException(HttpServletRequest request, Exception exception) {
+    public String handleException(HttpServletRequest request, HttpServletResponse response, Exception exception) {
         LOG.error("Exception while processing request for: {}", urlPathHelper.getRequestUri(request), exception);
         request.setAttribute(MARKUP, markup);
+          
+        // set appropriate response status code 500, except if it's an include
+        if( ! isIncludeRequest(request)){
+	    	final ServletServerHttpResponse res = new ServletServerHttpResponse(response);
+	    	res.setStatusCode(HttpStatus.INTERNAL_SERVER_ERROR);
+	        res.close();
+        }
         return isIncludeRequest(request) ? SECTION_ERROR_VIEW : SERVER_ERROR_VIEW;
     }
 
+    /**
+     * 
+     * @param the Page path
+     * @param the localization
+     * @return the Page
+     */
     private PageModel getPageModel(String path, Localization localization) {
         try {
             return contentProvider.getPageModel(path, localization);

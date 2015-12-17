@@ -1,50 +1,7 @@
 package com.sdl.webapp.tridion;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sdl.webapp.common.api.content.ContentProvider;
-import com.sdl.webapp.common.api.content.ContentProviderException;
-import com.sdl.webapp.common.api.content.LinkResolver;
-import com.sdl.webapp.common.api.content.NavigationProvider;
-import com.sdl.webapp.common.api.content.NavigationProviderException;
-import com.sdl.webapp.common.api.content.PageNotFoundException;
-import com.sdl.webapp.common.api.content.StaticContentItem;
-import com.sdl.webapp.common.api.content.StaticContentNotFoundException;
-import com.sdl.webapp.common.api.localization.Localization;
-import com.sdl.webapp.common.api.model.EntityModel;
-import com.sdl.webapp.common.api.model.PageModel;
-import com.sdl.webapp.common.api.model.entity.ContentList;
-import com.sdl.webapp.common.api.model.entity.Link;
-import com.sdl.webapp.common.api.model.entity.NavigationLinks;
-import com.sdl.webapp.common.api.model.entity.SitemapItem;
-import com.sdl.webapp.common.api.model.entity.Teaser;
-import com.sdl.webapp.common.exceptions.DxaException;
-import com.sdl.webapp.common.exceptions.DxaItemNotFoundException;
-import com.sdl.webapp.tridion.query.BrokerQuery;
-import com.sdl.webapp.tridion.query.BrokerQueryException;
-import com.tridion.broker.StorageException;
-import com.tridion.storage.BinaryContent;
-import com.tridion.storage.BinaryMeta;
-import com.tridion.storage.BinaryVariant;
-import com.tridion.storage.ItemMeta;
-import com.tridion.storage.StorageManagerFactory;
-import com.tridion.storage.StorageTypeMapping;
-import com.tridion.storage.dao.BinaryContentDAO;
-import com.tridion.storage.dao.BinaryVariantDAO;
-import com.tridion.storage.dao.ItemDAO;
-import org.dd4t.contentmodel.ComponentPresentation;
-import org.dd4t.core.exceptions.FactoryException;
-import org.dd4t.core.exceptions.ItemNotFoundException;
-import org.dd4t.core.factories.ComponentPresentationFactory;
-import org.dd4t.core.factories.PageFactory;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
-import org.springframework.util.StringUtils;
-import org.springframework.web.context.WebApplicationContext;
-
-import javax.imageio.ImageIO;
-import java.awt.*;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
 import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
@@ -60,16 +17,67 @@ import java.util.Collections;
 import java.util.List;
 import java.util.regex.Pattern;
 
+import javax.imageio.ImageIO;
+
+import org.dd4t.contentmodel.ComponentPresentation;
+import org.dd4t.core.exceptions.FactoryException;
+import org.dd4t.core.exceptions.ItemNotFoundException;
+import org.dd4t.core.factories.ComponentPresentationFactory;
+import org.dd4t.core.factories.PageFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
+import org.springframework.web.context.WebApplicationContext;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sdl.webapp.common.api.content.ContentProvider;
+import com.sdl.webapp.common.api.content.ContentProviderException;
+import com.sdl.webapp.common.api.content.LinkResolver;
+import com.sdl.webapp.common.api.content.NavigationProvider;
+import com.sdl.webapp.common.api.content.NavigationProviderException;
+import com.sdl.webapp.common.api.content.PageNotFoundException;
+import com.sdl.webapp.common.api.content.StaticContentItem;
+import com.sdl.webapp.common.api.localization.Localization;
+import com.sdl.webapp.common.api.model.EntityModel;
+import com.sdl.webapp.common.api.model.PageModel;
+import com.sdl.webapp.common.api.model.entity.ContentList;
+import com.sdl.webapp.common.api.model.entity.Link;
+import com.sdl.webapp.common.api.model.entity.NavigationLinks;
+import com.sdl.webapp.common.api.model.entity.SitemapItem;
+import com.sdl.webapp.common.api.model.entity.Teaser;
+import com.sdl.webapp.common.exceptions.DxaException;
+import com.sdl.webapp.common.exceptions.DxaItemNotFoundException;
+import com.sdl.webapp.tridion.query.BrokerQuery;
+import com.sdl.webapp.tridion.query.BrokerQueryException;
+import com.tridion.broker.StorageException;
+import com.tridion.storage.BinaryContent;
+import com.tridion.storage.StorageManagerFactory;
+import com.tridion.storage.StorageTypeMapping;
+import com.tridion.storage.dao.BinaryContentDAO;
+
 
 /**
  * Implementation of {@code ContentProvider} that uses DD4T to provide content.
  */
 @Component
 public final class DefaultProvider implements ContentProvider, NavigationProvider {
+	
     public static final String DEFAULT_PAGE_NAME = "index";
     public static final String DEFAULT_PAGE_EXTENSION = ".html";
     private static final Logger LOG = LoggerFactory.getLogger(DefaultProvider.class);
     private static final String STATIC_FILES_DIR = "BinaryData";
+    
+    /** Whether to store the static contents on the file sys instead of the DB */
+    @Value("#{environment.getProperty('enableDirStaticContent;', 'false')}")
+    private boolean enableDirStaticContent;
+    
+    /** Where on the file sys to store the static content. 
+     *  This is used only when the flag 'enableDirStaticContent' is set */
+    @Value("#{environment.getProperty('staticContentDir;', '/images')}")
+    private String staticContentDir;
 
     private static final Pattern SYSTEM_VERSION_PATTERN = Pattern.compile("/system/v\\d+\\.\\d+/");
 
@@ -286,76 +294,142 @@ public final class DefaultProvider implements ContentProvider, NavigationProvide
     
     /* staticcontentprovider code */
 
+    /**
+     *  Will  use either the database or file system to load images.
+     *  Using the latter is expected to improve performance.
+     *  
+     * @param path
+     * @param localizationId
+     * @return
+     * @throws ContentProviderException
+     */
     private StaticContentFile getStaticContentFile(String path, String localizationId)
             throws ContentProviderException {
-        final File file = new File(new File(new File(new File(
-                webApplicationContext.getServletContext().getRealPath("/")), STATIC_FILES_DIR), localizationId), path);
+    	
+    	String pathname =  webApplicationContext.getServletContext().getRealPath("/");   
+        final File file = new File(new File(new File(new File( pathname), STATIC_FILES_DIR), localizationId), path);
         LOG.trace("getStaticContentFile: {}", file);
 
         final StaticContentPathInfo pathInfo = new StaticContentPathInfo(path);
 
         final int publicationId = Integer.parseInt(localizationId);
         try {
-            final BinaryVariant binaryVariant = findBinaryVariant(publicationId, pathInfo.getFileName());
-            if (binaryVariant == null) {
-                throw new StaticContentNotFoundException("No binary variant found for: [" + publicationId + "] " +
-                        pathInfo.getFileName());
-            }
-
-            final BinaryMeta binaryMeta = binaryVariant.getBinaryMeta();
-            final ItemMeta itemMeta = findItemMeta(binaryMeta.getPublicationId(), binaryMeta.getItemId());
-
+        	// 1. Get metadata info on that file path and publication id
+            final StaticContentMetaInfo metaInfo = new StaticContentMetaInfo(publicationId, pathInfo);   
+            // 2. Determine if the file needs updating
             boolean refresh;
             if (file.exists()) {
-                refresh = file.lastModified() < itemMeta.getLastPublishDate().getTime();
+                refresh = file.lastModified() < metaInfo.getLastPublishTime();
             } else {
                 refresh = true;
-                if (!file.getParentFile().exists()) {
-                    if (!file.getParentFile().mkdirs()) {
+                if (! file.getParentFile().exists() && ! file.getParentFile().mkdirs()) {
                         throw new ContentProviderException("Failed to create parent directory for file: " + file);
-                    }
                 }
             }
-
+            // 3. Write the content if file is to be updated (new or modified)
             if (refresh) {
-                final BinaryContent binaryContent = findBinaryContent(itemMeta.getPublicationId(), itemMeta.getItemId(),
-                        binaryVariant.getVariantId());
-
-                byte[] content = binaryContent.getContent();
-                if (pathInfo.isImage() && pathInfo.isResized()) {
-                    content = resizeImage(content, pathInfo);
-                }
-
-                LOG.debug("Writing binary content to file: {}", file);
-                Files.write(file.toPath(), content);
-            } else {
-                LOG.debug("File does not need to be refreshed: {}", file);
-            }
-
-            return new StaticContentFile(file, binaryVariant.getBinaryType());
+            	writeContent(localizationId, file, pathInfo, metaInfo);
+            }  else {
+                LOG.debug("File does not need to be refreshed: {}. Will set flag.", file);
+            }           
+            // 4. Return the file with the neeeded information
+            return new StaticContentFile(file, metaInfo.getContentType());    
+            
         } catch (StorageException | IOException e) {
             throw new ContentProviderException("Exception while getting static content for: [" + publicationId + "] "
                     + path, e);
         }
     }
+    
+    
+    /**
+	 *  Retrieves a static file's content from the database or the file system, 
+	 *  performs any necessary resizing, and writes that content.
+	 *  <ul>
+	 *  <li>JSON files are <i>always</i> retrieved from the database</li>
+	 *  <li>Images can be retrieved from the databse <b>or</b> the file system, depending on configuration</li>
+	 *  </ul>
+	 *  
+	 * @param localizationId
+	 * @param file
+	 * @param pathInfo
+	 * @param metaInfo
+	 * 
+	 * @throws IOException
+	 * @throws StorageException
+	 * @throws ContentProviderException
+	 */
+	private void writeContent(String localizationId, final File file,
+			                  final StaticContentPathInfo pathInfo, final StaticContentMetaInfo metaInfo)
+			        throws IOException, StorageException, ContentProviderException {
+		
+		// a) Get original (i.e. non-cropped) file contents
+		byte[] content = null;  
+		boolean is_JSON = pathInfo.getFileName().toLowerCase().endsWith(".json");
+		
+		// If Tridion is configured to publish images in the file system (in staticContentDir),
+		// get the content from there...otherwise, go to the database.             	          		
+		content =  (enableDirStaticContent && ! is_JSON ) 
+				   ? getContentFromFileSys(localizationId, pathInfo)
+				   : getContentFromDB(metaInfo);   				   
+         
+		// b) Resize if necessary
+		if (pathInfo.isImage() && pathInfo.isResized()) {
+		    content = resizeImage(content, pathInfo);
+		    LOG.debug("Resized: " +  pathInfo.getFileName()); 
+		}   		
+		
+		// c) Write file contents
+		LOG.debug("Writing binary content to file: {}", file);
+		Files.write(file.toPath(), content);
+	}
 
-    private synchronized BinaryVariant findBinaryVariant(int publicationId, String path) throws StorageException {
-        final BinaryVariantDAO dao = (BinaryVariantDAO) StorageManagerFactory.getDAO(publicationId,
-                StorageTypeMapping.BINARY_VARIANT);
-        return dao.findByURL(publicationId, path);
-    }
+	
+	/**
+	 * Gets the file's binary content from the database.
+	 * 
+	 * @param metaInfo
+	 * @return byte array
+	 * 
+	 * @throws StorageException
+	 */
+	protected byte[] getContentFromDB(final StaticContentMetaInfo metaInfo) throws StorageException {
+		
+		int publicationId = metaInfo.getPublicationId();
+		LOG.debug("Accessing Tridion Database to get Binary content...");	
+		final BinaryContentDAO dao = (BinaryContentDAO) StorageManagerFactory.getDAO(publicationId, 
+				                                                StorageTypeMapping.BINARY_CONTENT);
+		final BinaryContent binaryContent = dao.findByPrimaryKey(publicationId,  metaInfo.getItemId(), 
+				                                                 metaInfo.getVariantId());	
+		return binaryContent.getContent();	
+	}
 
-    private synchronized ItemMeta findItemMeta(int publicationId, int itemId) throws StorageException {
-        final ItemDAO dao = (ItemDAO) StorageManagerFactory.getDAO(publicationId, StorageTypeMapping.ITEM_META);
-        return dao.findByPrimaryKey(publicationId, itemId);
-    }
-
-    private synchronized BinaryContent findBinaryContent(int publicationId, int itemId, String variantId) throws StorageException {
-        final BinaryContentDAO dao = (BinaryContentDAO) StorageManagerFactory.getDAO(publicationId,
-                StorageTypeMapping.BINARY_CONTENT);
-        return dao.findByPrimaryKey(publicationId, itemId, variantId);
-    }
-
+	/**
+	 * Gets the file's binary content from the file system.
+	 * 
+	 * @param localizationId
+	 * @param pathInfo
+	 * @return byte array
+	 * 
+	 * @throws IOException
+	 */
+	protected byte[] getContentFromFileSys(String localizationId, final StaticContentPathInfo pathInfo) 
+			                               throws IOException {
+		
+		final File fileOrig= new File(new File(new File( staticContentDir), localizationId), 
+				                                         pathInfo.getFileName());
+		LOG.debug("FileOrig: {}" ,fileOrig );		
+		return Files.readAllBytes(fileOrig.toPath());
+	}
+	
+    
+    /**
+     * Resize image if necessary.
+     * @param original
+     * @param pathInfo
+     * @return
+     * @throws ContentProviderException
+     */
     private byte[] resizeImage(byte[] original, StaticContentPathInfo pathInfo) throws ContentProviderException {
         try {
             final BufferedImage originalImage = ImageIO.read(new ByteArrayInputStream(original));

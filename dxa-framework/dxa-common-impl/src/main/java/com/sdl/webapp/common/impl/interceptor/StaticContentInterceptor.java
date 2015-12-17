@@ -97,10 +97,9 @@ public class StaticContentInterceptor extends HandlerInterceptorAdapter {
                 } else {
                     throw e;
                 }
+            } finally{ 
+                res.close();
             }
-
-
-            res.close();
             return false;
         }
 
