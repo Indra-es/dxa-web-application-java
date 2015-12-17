@@ -144,6 +144,16 @@ public class WebRequestContextImpl implements WebRequestContext {
 
     @Override
     public void setRequestPath(String requestPath) {
+    	
+    	 // remove context path from request path if included
+    	// (problem of context path displayed twice in the URL)
+        if( requestPath != null && contextPath != null && 
+        		requestPath.toLowerCase().contains(contextPath .toLowerCase()) ){
+        	
+        	LOG.debug("Request path " + requestPath + " includes context path already.");
+        	requestPath = requestPath.replace(contextPath, "");        	
+        	LOG.debug("Request path corrected " + requestPath );
+        }
         this.requestPath = requestPath;
     }
 
