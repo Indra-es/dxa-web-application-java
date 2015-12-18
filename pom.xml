@@ -63,7 +63,9 @@
                 <tridion-cd-version>7.1.0</tridion-cd-version>
 
                 <!-- Tridion Contextual Web Delivery (CWD) -->
-                <tridion-cwd-version>7.1.2</tridion-cwd-version>
+                <!-- <tridion-cwd-version>7.1.2</tridion-cwd-version> -->
+                <!-- INDRA -->
+                <tridion-cwd-version>7.1.0</tridion-cwd-version>
 
                 <!-- Spring Framework -->
                 <!-- NOTE: Tridion CD 7.1.0 is compiled against Spring 3.1.0, but we need Spring 3.2 features -->
@@ -317,8 +319,19 @@
         <java-version>1.7</java-version>
 
         <!-- Dynamic Delivery for Tridion (DD4T) -->
-        <dd4t-version>2.0.2-DXA</dd4t-version>
+        <!-- <dd4t-version>2.0.2-DXA</dd4t-version> -->
+        <!-- INDRA -->
+        <dd4t-version>2.0.2</dd4t-version>
     </properties>
+    
+       <!-- INDRA repo -->
+    <repositories>
+		<repository>
+			<id>nexus-tms4web</id>
+			<url>http://tools.tmsforweb.com/nexus/content/groups/public</url>
+			<name>tms4web nexus respository</name>
+		</repository>
+	</repositories>
 
     <!-- Dependency management -->
     <dependencyManagement>

@@ -185,14 +185,14 @@
             <groupId>com.tridion</groupId>
             <artifactId>cd_wrapper</artifactId>
         </dependency>
-        <dependency>
+        <!-- <dependency>
             <groupId>com.tridion</groupId>
             <artifactId>cd_preview_ambient</artifactId>
         </dependency>
         <dependency>
             <groupId>com.tridion</groupId>
             <artifactId>cd_preview_web</artifactId>
-        </dependency>
+        </dependency> -->
         <dependency>
             <groupId>com.tridion</groupId>
             <artifactId>cwd_cartridge</artifactId>
@@ -278,6 +278,8 @@
         <dependency>
             <groupId>org.dd4t</groupId>
             <artifactId>dd4t-api</artifactId>
+            <version>${dd4t-version}</version>
+            <classifier>INDRA</classifier> 
             <exclusions>
                 <exclusion>
                     <groupId>com.tridion.contentdelivery</groupId>
@@ -288,6 +290,8 @@
         <dependency>
             <groupId>org.dd4t</groupId>
             <artifactId>dd4t-core</artifactId>
+            <version>${dd4t-version}</version>
+            <classifier>INDRA</classifier> 
             <exclusions>
                 <exclusion>
                     <groupId>com.tridion.contentdelivery</groupId>
@@ -298,6 +302,8 @@
         <dependency>
             <groupId>org.dd4t</groupId>
             <artifactId>dd4t-databind</artifactId>
+            <version>${dd4t-version}</version>
+            <classifier>INDRA</classifier> 
             <exclusions>
                 <exclusion>
                     <groupId>com.tridion.contentdelivery</groupId>
@@ -308,6 +314,8 @@
         <dependency>
             <groupId>org.dd4t</groupId>
             <artifactId>dd4t-providers</artifactId>
+            <version>${dd4t-version}</version>
+            <classifier>INDRA</classifier> 
             <exclusions>
                 <exclusion>
                     <groupId>com.tridion.contentdelivery</groupId>
