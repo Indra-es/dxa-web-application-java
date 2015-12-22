@@ -179,7 +179,8 @@ public final class DefaultProvider implements ContentProvider, NavigationProvide
         }
     }
 
-    private InputStream getPageContent(String path, Localization localization) throws ContentProviderException {
+    @Override
+    public InputStream getPageContent(String path, Localization localization) throws ContentProviderException {
         return findPage(path, localization, new TryFindPage<InputStream>() {
             @Override
             public InputStream tryFindPage(String path, int publicationId) throws ContentProviderException {

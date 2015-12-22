@@ -1,5 +1,7 @@
 package com.sdl.webapp.common.api.content;
 
+import java.io.InputStream;
+
 import com.sdl.webapp.common.api.localization.Localization;
 import com.sdl.webapp.common.api.model.EntityModel;
 import com.sdl.webapp.common.api.model.PageModel;
@@ -49,4 +51,14 @@ public interface ContentProvider {
      */
     StaticContentItem getStaticContent(String path, String localizationId, String localizationPath)
             throws ContentProviderException;
+    
+    /**
+     * 
+     * @param path
+     * @param localization
+     * @return
+     * @throws ContentProviderException
+     */
+    public InputStream getPageContent(String path, Localization localization) 
+    		throws ContentProviderException;
 }
