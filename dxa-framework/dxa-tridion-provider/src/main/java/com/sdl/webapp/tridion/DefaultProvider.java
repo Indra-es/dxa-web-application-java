@@ -432,6 +432,9 @@ public final class DefaultProvider implements ContentProvider, NavigationProvide
      * @throws ContentProviderException
      */
     private byte[] resizeImage(byte[] original, StaticContentPathInfo pathInfo) throws ContentProviderException {
+    	
+        Graphics2D graphics = null;
+    	ByteArrayOutputStream out = null;
         try {
             final BufferedImage originalImage = ImageIO.read(new ByteArrayInputStream(original));
 
@@ -488,7 +491,7 @@ public final class DefaultProvider implements ContentProvider, NavigationProvide
 
             final BufferedImage target = new BufferedImage(targetW, targetH, BufferedImage.TYPE_INT_RGB);
 
-            final Graphics2D graphics = target.createGraphics();
+            graphics = target.createGraphics();
             graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
             graphics.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
@@ -499,13 +502,27 @@ public final class DefaultProvider implements ContentProvider, NavigationProvide
 
             graphics.drawRenderedImage(originalImage, transform);
 
-            graphics.dispose();
-
-            final ByteArrayOutputStream out = new ByteArrayOutputStream();
+            out = new ByteArrayOutputStream();
             ImageIO.write(target, pathInfo.getImageFormatName(), out);
             return out.toByteArray();
-        } catch (IOException e) {
+        } 
+        catch (IOException e) {
             throw new ContentProviderException("Exception while processing image data", e);
+        }
+        finally{
+        	if(graphics != null){
+    			LOG.debug("Disposing of Graphics resource");
+    		   graphics.dispose();
+    		}		  	
+    		if(out!= null){
+    			try {
+    				LOG.debug("Closing output stream");
+    				out.close();
+    			} catch (IOException e) {
+    				LOG.debug("Could not close output stream, I/O Exception {}", e.getMessage());
+    				e.printStackTrace();
+    			}
+    		}
         }
     }
 
