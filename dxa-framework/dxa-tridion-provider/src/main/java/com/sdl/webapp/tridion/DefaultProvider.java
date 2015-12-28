@@ -520,7 +520,6 @@ public final class DefaultProvider implements ContentProvider, NavigationProvide
     				out.close();
     			} catch (IOException e) {
     				LOG.debug("Could not close output stream, I/O Exception {}", e.getMessage());
-    				e.printStackTrace();
     			}
     		}
         }
